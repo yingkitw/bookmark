@@ -27,3 +27,6 @@ url = "2.5"
 regex = "1.10"
 petgraph = "0.6"
 quick-xml = "0.31"
+
+[dev-dependencies]
+tempfile = "3.10"

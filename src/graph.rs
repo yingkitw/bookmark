@@ -684,3 +684,290 @@ pub mod formats {
             .replace('\'', "&apos;")
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use chrono::Utc;
+
+    fn create_test_bookmarks() -> Vec<Bookmark> {
+        vec![
+            Bookmark {
+                id: "1".to_string(),
+                title: "GitHub Home".to_string(),
+                url: Some("https://github.com".to_string()),
+                folder: Some("Development".to_string()),
+                date_added: Some(Utc::now()),
+                children: None,
+            },
+            Bookmark {
+                id: "2".to_string(),
+                title: "GitHub Repo".to_string(),
+                url: Some("https://github.com/user/repo".to_string()),
+                folder: Some("Development".to_string()),
+                date_added: Some(Utc::now()),
+                children: None,
+            },
+            Bookmark {
+                id: "3".to_string(),
+                title: "Rust Docs".to_string(),
+                url: Some("https://doc.rust-lang.org".to_string()),
+                folder: Some("Development".to_string()),
+                date_added: Some(Utc::now()),
+                children: None,
+            },
+            Bookmark {
+                id: "4".to_string(),
+                title: "Amazon".to_string(),
+                url: Some("https://www.amazon.com".to_string()),
+                folder: Some("Shopping".to_string()),
+                date_added: Some(Utc::now()),
+                children: None,
+            },
+        ]
+    }
+
+    fn create_test_history() -> Vec<UrlEntry> {
+        vec![
+            UrlEntry {
+                url: "https://github.com".to_string(),
+                title: "GitHub".to_string(),
+                visit_count: 10,
+                last_visit: Some(Utc::now()),
+            },
+            UrlEntry {
+                url: "https://www.reddit.com".to_string(),
+                title: "Reddit".to_string(),
+                visit_count: 5,
+                last_visit: Some(Utc::now()),
+            },
+        ]
+    }
+
+    #[test]
+    fn test_graph_from_bookmarks() {
+        let bookmarks = create_test_bookmarks();
+        let config = GraphConfig::default();
+        let mut builder = GraphBuilder::new(config);
+        let graph = builder.from_bookmarks(&bookmarks).unwrap();
+
+        // Should have 4 bookmark nodes + domain nodes + folder nodes
+        assert!(graph.nodes.len() >= 4);
+        assert_eq!(graph.metadata.bookmark_count, 4);
+
+        // Check that we have domain nodes (only github.com with 2+ bookmarks meets threshold)
+        let domain_nodes: Vec<_> = graph
+            .nodes
+            .iter()
+            .filter(|n| n.node_type == NodeType::Domain)
+            .collect();
+        assert_eq!(domain_nodes.len(), 1); // Only github.com has 2 bookmarks
+
+        // Check that we have folder nodes (Development, Shopping)
+        let folder_nodes: Vec<_> = graph
+            .nodes
+            .iter()
+            .filter(|n| n.node_type == NodeType::Folder)
+            .collect();
+        assert_eq!(folder_nodes.len(), 2);
+    }
+
+    #[test]
+    fn test_graph_from_history() {
+        let history = create_test_history();
+        let config = GraphConfig::default();
+        let mut builder = GraphBuilder::new(config);
+        let graph = builder.from_history(&history).unwrap();
+
+        // Should have 2 history nodes
+        assert_eq!(graph.metadata.bookmark_count, 2);
+        assert_eq!(graph.metadata.folder_count, 0); // History has no folders
+
+        // With default threshold of 2, no domain nodes are created (each domain has only 1 entry)
+        let domain_nodes: Vec<_> = graph
+            .nodes
+            .iter()
+            .filter(|n| n.node_type == NodeType::Domain)
+            .collect();
+        assert_eq!(domain_nodes.len(), 0);
+    }
+
+    #[test]
+    fn test_domain_threshold() {
+        let bookmarks = create_test_bookmarks();
+        let config = GraphConfig {
+            min_domain_threshold: 3, // Require 3+ bookmarks per domain
+            ..Default::default()
+        };
+        let mut builder = GraphBuilder::new(config);
+        let graph = builder.from_bookmarks(&bookmarks).unwrap();
+
+        // github.com has 2 bookmarks, should not create a domain node with threshold of 3
+        let github_nodes: Vec<_> = graph
+            .nodes
+            .iter()
+            .filter(|n| n.node_type == NodeType::Domain && n.domain == Some("github.com".to_string()))
+            .collect();
+        assert_eq!(github_nodes.len(), 0);
+    }
+
+    #[test]
+    fn test_edge_creation() {
+        let bookmarks = create_test_bookmarks();
+        let config = GraphConfig::default();
+        let mut builder = GraphBuilder::new(config);
+        let graph = builder.from_bookmarks(&bookmarks).unwrap();
+
+        // Should have edges
+        assert!(graph.edges.len() > 0);
+
+        // Check domain edges
+        let domain_edges: Vec<_> = graph
+            .edges
+            .iter()
+            .filter(|e| e.edge_type == EdgeType::BelongsToDomain)
+            .collect();
+        assert!(domain_edges.len() > 0);
+
+        // Check folder edges
+        let folder_edges: Vec<_> = graph
+            .edges
+            .iter()
+            .filter(|e| e.edge_type == EdgeType::InFolder)
+            .collect();
+        assert!(folder_edges.len() > 0);
+    }
+
+    #[test]
+    fn test_dot_export() {
+        let bookmarks = create_test_bookmarks();
+        let config = GraphConfig::default();
+        let mut builder = GraphBuilder::new(config);
+        let graph = builder.from_bookmarks(&bookmarks).unwrap();
+
+        let dot = formats::to_dot(&graph);
+
+        // Check DOT format structure
+        assert!(dot.contains("digraph BookmarkKnowledgeGraph"));
+        assert!(dot.contains("rankdir=LR"));
+        assert!(dot.contains("fillcolor")); // Should have colors
+
+        // Check for nodes
+        assert!(dot.contains("node"));
+        assert!(dot.contains("->")); // Should have edges
+    }
+
+    #[test]
+    fn test_json_export() {
+        let bookmarks = create_test_bookmarks();
+        let config = GraphConfig::default();
+        let mut builder = GraphBuilder::new(config);
+        let graph = builder.from_bookmarks(&bookmarks).unwrap();
+
+        let json = formats::to_json(&graph);
+
+        // Check JSON structure
+        assert!(json.contains("\"nodes\""));
+        assert!(json.contains("\"edges\""));
+        assert!(json.contains("\"metadata\""));
+
+        // Parse and validate
+        let parsed: serde_json::Value = serde_json::from_str(&json).unwrap();
+        assert!(parsed["nodes"].is_array());
+        assert!(parsed["edges"].is_array());
+        assert!(parsed["metadata"]["total_nodes"].is_number());
+    }
+
+    #[test]
+    fn test_gexf_export() {
+        let bookmarks = create_test_bookmarks();
+        let config = GraphConfig::default();
+        let mut builder = GraphBuilder::new(config);
+        let graph = builder.from_bookmarks(&bookmarks).unwrap();
+
+        let gexf = formats::to_gexf(&graph);
+
+        // Check GEXF format structure
+        assert!(gexf.contains("<?xml version=\"1.0\""));
+        assert!(gexf.contains("<gexf"));
+        assert!(gexf.contains("<nodes>"));
+        assert!(gexf.contains("<edges>"));
+        assert!(gexf.contains("</gexf>"));
+    }
+
+    #[test]
+    fn test_edge_type_toggles() {
+        let bookmarks = create_test_bookmarks();
+
+        // Test with only domain edges
+        let config = GraphConfig {
+            include_folder_edges: false,
+            include_domain_edges: true,
+            include_same_domain_edges: false,
+            ..Default::default()
+        };
+        let mut builder = GraphBuilder::new(config);
+        let graph = builder.from_bookmarks(&bookmarks).unwrap();
+
+        // Should only have domain edges
+        assert!(graph.edges.iter().all(|e| e.edge_type == EdgeType::BelongsToDomain));
+    }
+
+    #[test]
+    fn test_empty_bookmarks() {
+        let bookmarks: Vec<Bookmark> = vec![];
+        let config = GraphConfig::default();
+        let mut builder = GraphBuilder::new(config);
+        let graph = builder.from_bookmarks(&bookmarks).unwrap();
+
+        assert_eq!(graph.nodes.len(), 0);
+        assert_eq!(graph.edges.len(), 0);
+        assert_eq!(graph.metadata.bookmark_count, 0);
+    }
+
+    #[test]
+    fn test_bookmark_without_url() {
+        let bookmarks = vec![Bookmark {
+            id: "1".to_string(),
+            title: "No URL Bookmark".to_string(),
+            url: None,
+            folder: Some("Misc".to_string()),
+            date_added: Some(Utc::now()),
+            children: None,
+        }];
+
+        let config = GraphConfig::default();
+        let mut builder = GraphBuilder::new(config);
+        let graph = builder.from_bookmarks(&bookmarks).unwrap();
+
+        // Should still create the bookmark node
+        assert_eq!(graph.metadata.bookmark_count, 1);
+
+        // Should not create domain node (no URL)
+        let domain_nodes: Vec<_> = graph
+            .nodes
+            .iter()
+            .filter(|n| n.node_type == NodeType::Domain)
+            .collect();
+        assert_eq!(domain_nodes.len(), 0);
+
+        // Should still create folder node
+        let folder_nodes: Vec<_> = graph
+            .nodes
+            .iter()
+            .filter(|n| n.node_type == NodeType::Folder)
+            .collect();
+        assert_eq!(folder_nodes.len(), 1);
+    }
+
+    #[test]
+    fn test_extract_domain() {
+        let config = GraphConfig::default();
+        let builder = GraphBuilder::new(config);
+
+        assert_eq!(builder.extract_domain("https://github.com"), Some("github.com".to_string()));
+        assert_eq!(builder.extract_domain("https://www.github.com"), Some("github.com".to_string()));
+        assert_eq!(builder.extract_domain("https://doc.rust-lang.org"), Some("doc.rust-lang.org".to_string()));
+        assert_eq!(builder.extract_domain("not-a-url"), None);
+    }
+}

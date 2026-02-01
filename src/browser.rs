@@ -1,5 +1,6 @@
 use anyhow::{anyhow, Result};
 use dirs;
+use std::fmt;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
@@ -10,6 +11,17 @@ pub enum Browser {
     Firefox,
     Safari,
     Edge,
+}
+
+impl fmt::Display for Browser {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Browser::Chrome => write!(f, "Chrome"),
+            Browser::Firefox => write!(f, "Firefox"),
+            Browser::Safari => write!(f, "Safari"),
+            Browser::Edge => write!(f, "Edge"),
+        }
+    }
 }
 
 impl FromStr for Browser {
@@ -225,4 +237,50 @@ pub fn list_profiles(browser_name: &str) -> Result<()> {
     }
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_browser_from_str() {
+        assert!(matches!(Browser::from_str("chrome"), Ok(Browser::Chrome)));
+        assert!(matches!(Browser::from_str("Chrome"), Ok(Browser::Chrome)));
+        assert!(matches!(Browser::from_str("CHROME"), Ok(Browser::Chrome)));
+
+        assert!(matches!(Browser::from_str("firefox"), Ok(Browser::Firefox)));
+        assert!(matches!(Browser::from_str("Firefox"), Ok(Browser::Firefox)));
+
+        assert!(matches!(Browser::from_str("safari"), Ok(Browser::Safari)));
+        assert!(matches!(Browser::from_str("Safari"), Ok(Browser::Safari)));
+
+        assert!(matches!(Browser::from_str("edge"), Ok(Browser::Edge)));
+        assert!(matches!(Browser::from_str("Edge"), Ok(Browser::Edge)));
+
+        assert!(Browser::from_str("invalid").is_err());
+        assert!(Browser::from_str("chrome2").is_err());
+    }
+
+    #[test]
+    fn test_browser_display() {
+        assert_eq!(format!("{}", Browser::Chrome), "Chrome");
+        assert_eq!(format!("{}", Browser::Firefox), "Firefox");
+        assert_eq!(format!("{}", Browser::Safari), "Safari");
+        assert_eq!(format!("{}", Browser::Edge), "Edge");
+    }
+
+    #[test]
+    fn test_all_browser_variants() {
+        let browsers = ["Chrome", "Firefox", "Safari", "Edge"];
+
+        for browser_name in browsers.iter() {
+            let browser = Browser::from_str(browser_name);
+            assert!(browser.is_ok(), "Failed to parse {}", browser_name);
+
+            let browser = browser.unwrap();
+            let display = format!("{}", browser);
+            assert_eq!(display, *browser_name);
+        }
+    }
 }

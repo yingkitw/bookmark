@@ -111,11 +111,11 @@ impl BookmarkOrganizer {
                         "{}{}{}",
                         new_folder, self.config.folder_separator, existing_folder
                     ));
-                    continue;
                 }
+            } else {
+                bookmark.folder = Some(new_folder);
             }
 
-            bookmark.folder = Some(new_folder);
             organized_bookmarks.push(bookmark);
         }
 
@@ -172,8 +172,8 @@ impl BookmarkOrganizer {
             // Keep the main domain and TLD
             format!("Domains/{}", parts[0])
         } else if parts.len() >= 2 {
-            // Standard domain format
-            format!("Domains/{}", parts[0])
+            // Standard domain format - use second-to-last part (the actual domain)
+            format!("Domains/{}", parts[parts.len() - 2])
         } else {
             format!("Domains/{}", host)
         }
@@ -353,7 +353,6 @@ pub fn create_automated_rules(bookmarks: &[Bookmark]) -> Vec<OrganizationRule> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::Utc;
 
     #[test]
     fn test_domain_extraction() {
@@ -406,5 +405,123 @@ mod tests {
 
         let folder = organizer.determine_folder(&bookmark);
         assert_eq!(folder, "Social");
+    }
+
+    #[test]
+    fn test_organize_preserves_existing() {
+        let config = OrganizationConfig {
+            preserve_existing: true,
+            ..Default::default()
+        };
+        let organizer = BookmarkOrganizer::new(config);
+
+        let bookmarks = vec![Bookmark {
+            id: "1".to_string(),
+            title: "GitHub".to_string(),
+            url: Some("https://github.com".to_string()),
+            folder: Some("My Folder".to_string()),
+            date_added: None,
+            children: None,
+        }];
+
+        let result = organizer.organize(bookmarks).unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(result[0].folder.as_ref().unwrap().contains("My Folder"));
+    }
+
+    #[test]
+    fn test_organize_replaces_folder() {
+        let config = OrganizationConfig {
+            preserve_existing: false,
+            ..Default::default()
+        };
+        let organizer = BookmarkOrganizer::new(config);
+
+        let bookmarks = vec![Bookmark {
+            id: "1".to_string(),
+            title: "GitHub".to_string(),
+            url: Some("https://github.com".to_string()),
+            folder: Some("Old Folder".to_string()),
+            date_added: None,
+            children: None,
+        }];
+
+        let result = organizer.organize(bookmarks).unwrap();
+        assert_eq!(result.len(), 1);
+        assert!(!result[0].folder.as_ref().unwrap().contains("Old Folder"));
+    }
+
+    #[test]
+    fn test_multiple_categorization_rules() {
+        let config = OrganizationConfig::default();
+        let organizer = BookmarkOrganizer::new(config);
+
+        // Test various URLs get categorized correctly
+        let test_cases = vec![
+            ("https://github.com", "GitHub", "Development"),
+            ("https://twitter.com", "Twitter", "Social"),
+            ("https://www.amazon.com/product", "Amazon", "Shopping"),
+            ("https://nytimes.com/article", "News", "News & Reference"),
+            ("https://youtube.com/watch", "Video", "Entertainment"),
+        ];
+
+        for (url, title, expected_category) in test_cases {
+            let category = organizer.categorize_by_content(url, title);
+            assert_eq!(
+                category, expected_category,
+                "Failed for URL: {}, Title: {}",
+                url, title
+            );
+        }
+    }
+
+    #[test]
+    fn test_domain_edge_cases() {
+        let config = OrganizationConfig::default();
+        let organizer = BookmarkOrganizer::new(config);
+
+        // Test edge cases
+        let test_cases = vec![
+            ("example.com", "Domains/example"),
+            ("sub.sub.example.com", "Domains/example"),
+            ("www.example.com", "Domains/example"),
+            ("github.io", "Domains/github"),
+        ];
+
+        for (host, expected) in test_cases {
+            let result = organizer.extract_domain_folder(host);
+            assert_eq!(result, expected, "Failed for host: {}", host);
+        }
+    }
+
+    #[test]
+    fn test_empty_bookmarks_list() {
+        let config = OrganizationConfig::default();
+        let organizer = BookmarkOrganizer::new(config);
+
+        let bookmarks: Vec<Bookmark> = vec![];
+        let result = organizer.organize(bookmarks).unwrap();
+
+        assert_eq!(result.len(), 0);
+    }
+
+    #[test]
+    fn test_bookmark_without_url() {
+        let config = OrganizationConfig::default();
+        let organizer = BookmarkOrganizer::new(config);
+
+        let bookmarks = vec![Bookmark {
+            id: "1".to_string(),
+            title: "No URL".to_string(),
+            url: None,
+            folder: None,
+            date_added: None,
+            children: None,
+        }];
+
+        let result = organizer.organize(bookmarks).unwrap();
+        assert_eq!(result.len(), 1);
+        // Should categorize as Uncategorized
+        assert_eq!(result[0].folder.as_ref().unwrap(), "Uncategorized");
     }
 }
