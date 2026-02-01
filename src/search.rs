@@ -1,10 +1,76 @@
 use crate::browser::Browser;
-use crate::exporter::{export_data, BrowserData};
+use crate::exporter::{export_data, BrowserData, Bookmark};
 use anyhow::{anyhow, Result};
 use dialoguer::Select;
 use serde_yaml;
 use std::fs;
 use std::path::PathBuf;
+
+pub struct SearchOptions {
+    pub title_only: bool,
+    pub url_only: bool,
+    pub limit: usize,
+}
+
+pub fn search_bookmarks_internal(query: &str, options: &SearchOptions) -> Result<Vec<Bookmark>> {
+    let temp_file = PathBuf::from("/tmp/bookmark_search_data.yaml");
+    let browsers = ["Chrome", "Firefox", "Safari", "Edge"];
+    let mut all_bookmarks = Vec::new();
+
+    for browser_name in browsers.iter() {
+        match Browser::from_str(browser_name) {
+            Ok(browser) => {
+                if let Ok(profiles) = browser.find_profiles(None) {
+                    if !profiles.is_empty() {
+                        if let Ok(_) = export_data(browser_name, "bookmarks", Some(temp_file.clone()), None) {
+                            if let Ok(content) = fs::read_to_string(&temp_file) {
+                                if let Ok(data) = serde_yaml::from_str::<Vec<BrowserData>>(&content) {
+                                    for browser_data in data {
+                                        if let Some(bookmarks) = browser_data.bookmarks {
+                                            for bookmark in bookmarks {
+                                                if let Some(url) = &bookmark.url {
+                                                    if !url.is_empty() {
+                                                        all_bookmarks.push(bookmark);
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            Err(_) => continue,
+        }
+    }
+
+    let query_lower = query.to_lowercase();
+    let filtered_bookmarks: Vec<Bookmark> = all_bookmarks
+        .into_iter()
+        .filter(|bookmark| {
+            let title_match = bookmark.title.to_lowercase().contains(&query_lower);
+            let url_match = bookmark
+                .url
+                .as_ref()
+                .map(|u| u.to_lowercase().contains(&query_lower))
+                .unwrap_or(false);
+
+            if options.title_only {
+                title_match
+            } else if options.url_only {
+                url_match
+            } else {
+                title_match || url_match
+            }
+        })
+        .take(options.limit)
+        .collect();
+
+    let _ = fs::remove_file(&temp_file);
+    Ok(filtered_bookmarks)
+}
 
 pub fn search_bookmarks(query: &str, title_only: bool, url_only: bool, limit: usize) -> Result<()> {
     // First, import all bookmarks to a temporary file

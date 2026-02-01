@@ -1,19 +1,39 @@
 # Bookmark Manager
 
-A Rust CLI tool to import, search, organize, and generate knowledge graphs from browser bookmarks and history.
+[![Tests](https://img.shields.io/badge/tests-passing-brightgreen)]()
+[![Rust](https://img.shields.io/badge/rust-2024-orange)]()
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue)]()
+
+A Rust library and toolkit to import, search, organize, and generate knowledge graphs from browser bookmarks and history.
 
 ## Features
 
-- Multi-browser support: Chrome, Firefox, Safari, Edge
-- Search and open bookmarks instantly
-- Export bookmarks and history to YAML
-- Remove duplicates and organize into folders
-- Generate knowledge graphs (DOT, JSON, GEXF formats)
+- **Multi-browser support**: Chrome, Firefox, Safari, Edge
+- **Search and open bookmarks** instantly
+- **Export bookmarks and history** to YAML
+- **Remove duplicates** and organize into folders
+- **Generate knowledge graphs** (DOT, JSON, GEXF formats)
+- **Three usage modes**: CLI, Library API, MCP Server
 
 ## Installation
 
+### CLI Tool (Default)
 ```bash
 cargo build --release
+./target/release/bookmark --help
+```
+
+### MCP Server
+```bash
+cargo build --release --features mcp --bin bookmark-mcp
+./target/release/bookmark-mcp
+```
+
+### Library
+Add to your `Cargo.toml`:
+```toml
+[dependencies]
+bookmark = "0.1.2"
 ```
 
 ## Quick Start
@@ -28,6 +48,65 @@ cargo build --release
 ./examples/processing.sh
 ./examples/search-open.sh
 ```
+
+## Usage Modes
+
+### 1. CLI Mode (Default)
+
+Command-line interface for interactive use:
+
+```bash
+# Export bookmarks
+cargo run -- export --browser chrome
+
+# Search bookmarks
+cargo run -- search github
+
+# Generate knowledge graph
+cargo run -- graph --format dot -o graph.dot
+```
+
+### 2. Library API
+
+Use as a Rust library in your projects:
+
+```rust
+use bookmark::{BookmarkManager, Bookmark};
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let manager = BookmarkManager::new();
+    
+    // Export bookmarks
+    let bookmarks = manager.export_bookmarks("chrome")?;
+    
+    // Search
+    let results = manager.search("github")?;
+    
+    // Generate knowledge graph
+    let graph = manager.graph_from_bookmarks(&bookmarks)?;
+    
+    Ok(())
+}
+```
+
+See `examples/library_usage.rs` for a complete example.
+
+### 3. MCP Server
+
+Model Context Protocol server for AI assistants:
+
+```bash
+# Build and run MCP server
+cargo build --release --features mcp --bin bookmark-mcp
+./target/release/bookmark-mcp
+```
+
+**Available MCP Tools:**
+- `export_bookmarks` - Export bookmarks from browsers
+- `search_bookmarks` - Search bookmarks by query
+- `list_browsers` - List available browsers
+- `process_bookmarks` - Deduplicate and organize
+- `generate_graph` - Generate knowledge graphs
 
 ## Basic Usage
 
@@ -140,15 +219,32 @@ On macOS, Safari bookmarks are protected. Export manually:
 ## Development
 
 ```bash
-# Build
-cargo build --release
+# Build all modes
+cargo build --release --all-features
 
-# Test (37 tests)
-cargo test
+# Build specific modes
+cargo build --release                              # CLI only
+cargo build --release --features mcp --bin bookmark-mcp  # MCP server
+cargo build --release --lib                        # Library only
+
+# Test all modes
+./test_all_modes.sh
+
+# Run tests individually
+cargo test --lib                    # Unit tests (39 tests)
+cargo test --test integration_test  # Integration tests (3 tests)
+cargo test --features mcp --test mcp_test  # MCP tests
+cargo test --doc                    # Documentation tests (1 test)
 
 # Debug logging
 RUST_LOG=debug cargo run -- export
 ```
+
+### Build Features
+
+- **default**: CLI mode with `clap`, `dialoguer`, `open`
+- **cli**: Command-line interface dependencies
+- **mcp**: MCP server support
 
 ## Examples
 
@@ -161,6 +257,10 @@ See [examples/](examples/) directory for demo scripts:
 - **[examples/search-open.sh](examples/search-open.sh)** - Search patterns and opening
 
 See [examples/README.md](examples/README.md) for detailed documentation.
+
+## Changelog
+
+See [CHANGELOG.md](CHANGELOG.md) for version history and release notes.
 
 ## License
 

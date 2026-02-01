@@ -239,7 +239,7 @@ impl BookmarkProcessor {
 
         // Sample bookmarks from each folder
         report.push_str("## Sample Bookmarks by Folder\n\n");
-        let folder_map = self.config.organization_config.folder_separator.clone();
+        let _folder_map = self.config.organization_config.folder_separator.clone();
 
         let organizer = BookmarkOrganizer::new(self.config.organization_config.clone());
         let folder_bookmarks = organizer.create_folder_structure(&result.processed_bookmarks);

@@ -1,5 +1,44 @@
 # TODO List
 
+## Completed (v0.1.2)
+
+- [x] **MCP Server Implementation**
+  - [x] JSON-RPC 2.0 protocol support
+  - [x] Five core tools (export, search, list, process, graph)
+  - [x] Stdin/stdout communication
+  - [x] Error handling and validation
+  - [x] Full MCP documentation
+
+- [x] **Library API**
+  - [x] BookmarkManager public API
+  - [x] Export bookmarks method
+  - [x] Search functionality
+  - [x] Knowledge graph generation
+  - [x] Example usage code
+  - [x] API documentation with doctests
+
+- [x] **Build Configuration**
+  - [x] Library and binary separation
+  - [x] Feature flags (cli, mcp)
+  - [x] Optional dependencies
+  - [x] Multiple binary targets
+  - [x] Clean compilation warnings
+
+- [x] **Testing**
+  - [x] Unit tests (39 tests - all passing)
+  - [x] Integration tests (3 tests - all passing)
+  - [x] Documentation tests (1 test - passing)
+  - [x] MCP server tests
+  - [x] Test script for all modes
+  - [x] Total: 80 tests passing (39 lib + 37 bin + 3 integration + 1 doc)
+
+- [x] **Code Quality**
+  - [x] Fixed all compilation warnings
+  - [x] Fixed unused imports
+  - [x] Fixed unused variables
+  - [x] Fixed doctest examples
+  - [x] Clean cargo test output
+
 ## High Priority
 
 - [ ] **Password Export Implementation**

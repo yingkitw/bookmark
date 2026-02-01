@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bookmark Manager Documentation</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 60px 20px;
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        h1 { font-size: 3em; margin-bottom: 10px; }
+        .subtitle { font-size: 1.2em; opacity: 0.9; }
+        .cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+            margin-bottom: 40px;
+        }
+        .card {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: transform 0.2s;
+        }
+        .card:hover { transform: translateY(-5px); }
+        .card h2 {
+            color: #667eea;
+            margin-bottom: 15px;
+            font-size: 1.5em;
+        }
+        .card ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        .card li {
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+        }
+        .card li:last-child { border-bottom: none; }
+        .card a {
+            color: #667eea;
+            text-decoration: none;
+        }
+        .card a:hover { text-decoration: underline; }
+        .features {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            margin-bottom: 40px;
+        }
+        .features h2 { margin-bottom: 20px; color: #667eea; }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        .feature {
+            padding: 15px;
+            background: #f9f9f9;
+            border-radius: 5px;
+        }
+        .feature h3 { color: #764ba2; margin-bottom: 10px; }
+        code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+        }
+        pre {
+            background: #2d2d2d;
+            color: #f8f8f2;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 20px 0;
+        }
+        footer {
+            text-align: center;
+            padding: 40px 20px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>📚 Bookmark Manager</h1>
+        <p class="subtitle">A Rust library and toolkit for managing browser bookmarks</p>
+    </header>
+
+    <div class="container">
+        <div class="features">
+            <h2>Features</h2>
+            <div class="feature-grid">
+                <div class="feature">
+                    <h3>🌐 Multi-Browser Support</h3>
+                    <p>Chrome, Firefox, Safari, Edge</p>
+                </div>
+                <div class="feature">
+                    <h3>🔍 Search & Open</h3>
+                    <p>Find and open bookmarks instantly</p>
+                </div>
+                <div class="feature">
+                    <h3>📊 Knowledge Graphs</h3>
+                    <p>DOT, JSON, GEXF formats</p>
+                </div>
+                <div class="feature">
+                    <h3>🧹 Deduplication</h3>
+                    <p>Remove duplicates and organize</p>
+                </div>
+                <div class="feature">
+                    <h3>📦 Three Modes</h3>
+                    <p>CLI, Library API, MCP Server</p>
+                </div>
+                <div class="feature">
+                    <h3>🦀 Pure Rust</h3>
+                    <p>Fast, safe, and reliable</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="cards">
+            <div class="card">
+                <h2>📖 Documentation</h2>
+                <ul>
+                    <li><a href="../README.md">Getting Started</a></li>
+                    <li><a href="LIBRARY_API.md">Library API Reference</a></li>
+                    <li><a href="MCP_SERVER.md">MCP Server Guide</a></li>
+                    <li><a href="../ARCHITECTURE.md">Architecture</a></li>
+                    <li><a href="../SPEC.md">Technical Specification</a></li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h2>🚀 Quick Start</h2>
+                <ul>
+                    <li><a href="../examples/quick-start.sh">Quick Start Script</a></li>
+                    <li><a href="../examples/library_usage.rs">Library Example</a></li>
+                    <li><a href="../examples/knowledge-graph.sh">Graph Generation</a></li>
+                    <li><a href="../examples/processing.sh">Processing Demo</a></li>
+                    <li><a href="../examples/search-open.sh">Search & Open</a></li>
+                </ul>
+            </div>
+
+            <div class="card">
+                <h2>🛠️ Development</h2>
+                <ul>
+                    <li><a href="../Cargo.toml">Build Configuration</a></li>
+                    <li><a href="../TODO.md">TODO List</a></li>
+                    <li><a href="../test_all_modes.sh">Test All Modes</a></li>
+                    <li>39 Unit Tests</li>
+                    <li>Integration & MCP Tests</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="features">
+            <h2>Installation</h2>
+            
+            <h3>CLI Tool</h3>
+            <pre>cargo build --release
+./target/release/bookmark --help</pre>
+
+            <h3>MCP Server</h3>
+            <pre>cargo build --release --features mcp --bin bookmark-mcp
+./target/release/bookmark-mcp</pre>
+
+            <h3>Library</h3>
+            <pre>[dependencies]
+bookmark = "0.1.2"</pre>
+        </div>
+
+        <div class="features">
+            <h2>Usage Examples</h2>
+            
+            <h3>CLI Mode</h3>
+            <pre># Export bookmarks
+bookmark export --browser chrome
+
+# Search bookmarks
+bookmark search github
+
+# Generate knowledge graph
+bookmark graph --format dot -o graph.dot</pre>
+
+            <h3>Library API</h3>
+            <pre>use bookmark::BookmarkManager;
+
+let manager = BookmarkManager::new();
+let bookmarks = manager.export_bookmarks("chrome")?;
+let results = manager.search("github")?;
+let graph = manager.graph_from_bookmarks(&bookmarks)?;</pre>
+
+            <h3>MCP Server</h3>
+            <pre># Available tools:
+- export_bookmarks
+- search_bookmarks
+- list_browsers
+- process_bookmarks
+- generate_graph</pre>
+        </div>
+    </div>
+
+    <footer>
+        <p>Bookmark Manager v0.1.2 | Apache-2.0 License</p>
+        <p><a href="https://github.com/yingkitw/bookmark">GitHub Repository</a></p>
+    </footer>
+</body>
+</html>
