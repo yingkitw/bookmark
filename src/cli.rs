@@ -1,12 +1,84 @@
 use anyhow::Result;
 use std::fs;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::browser::Browser;
 use crate::deduplication::MergeStrategy;
 use crate::exporter::export_data;
 use crate::processor::{BookmarkProcessor, ProcessingConfig};
-use crate::{config, deduplication, exporter, graph, organization};
+use crate::{config, deduplication, exporter, graph, graph_output, organization, utils};
+
+/// Graph generation parameters (simpler function signature via struct)
+#[derive(Debug)]
+pub struct GraphParams {
+    pub min_threshold: usize,
+    pub detail: String,
+    pub max_per_domain: Option<usize>,
+    pub max_total: Option<usize>,
+    pub domain_only: bool,
+    pub since: Option<String>,
+}
+
+impl GraphParams {
+    /// Parse parameters into a GraphConfig
+    pub fn to_config(&self) -> Result<graph::GraphConfig> {
+        let detail_level = match self.detail.to_lowercase().as_str() {
+            "overview" => graph::DetailLevel::Overview,
+            "standard" => graph::DetailLevel::Standard,
+            "detailed" => graph::DetailLevel::Detailed,
+            _ => {
+                return Err(anyhow::anyhow!(
+                    "Invalid detail level: {}. Use overview, standard, or detailed",
+                    self.detail
+                ))
+            }
+        };
+
+        let min_date = if let Some(ref date_str) = self.since {
+            Some(
+                chrono::DateTime::parse_from_rfc3339(date_str)
+                    .map_err(|_| {
+                        anyhow::anyhow!(
+                            "Invalid date format: {}. Use ISO 8601 format (e.g., 2024-01-01T00:00:00Z)",
+                            date_str
+                        )
+                    })?
+                    .with_timezone(&chrono::Utc),
+            )
+        } else {
+            None
+        };
+
+        Ok(graph::GraphConfig {
+            min_domain_threshold: self.min_threshold,
+            detail_level,
+            max_bookmarks_per_domain: self.max_per_domain,
+            max_total_bookmarks: self.max_total,
+            domain_only: self.domain_only,
+            min_date,
+            ..Default::default()
+        })
+    }
+
+    /// Print configuration summary
+    fn print_summary(&self, detail_level: &graph::DetailLevel, min_date: &Option<chrono::DateTime<chrono::Utc>>) {
+        println!("Graph configuration:");
+        println!("  Detail level: {:?}", detail_level);
+        println!("  Min domain threshold: {}", self.min_threshold);
+        if let Some(max_per) = self.max_per_domain {
+            println!("  Max bookmarks per domain: {}", max_per);
+        }
+        if let Some(max_tot) = self.max_total {
+            println!("  Max total bookmarks: {}", max_tot);
+        }
+        if self.domain_only {
+            println!("  Domain-only mode: enabled");
+        }
+        if let Some(date) = min_date {
+            println!("  Only bookmarks newer than: {}", date);
+        }
+    }
+}
 
 pub fn export_all_browsers(
     data_type: &str,
@@ -130,71 +202,17 @@ pub fn generate_graph(
     data_type: &str,
     format: &str,
     output: PathBuf,
-    min_threshold: usize,
-    detail: &str,
-    max_per_domain: Option<usize>,
-    max_total: Option<usize>,
-    domain_only: bool,
-    since: Option<String>,
+    params: GraphParams,
 ) -> Result<()> {
     println!("Generating knowledge graph...");
 
     let (bookmarks, history) = exporter::load_browser_data(browser, data_type)?;
+    let config = params.to_config()?;
 
-    // Parse detail level
-    let detail_level = match detail.to_lowercase().as_str() {
-        "overview" => graph::DetailLevel::Overview,
-        "standard" => graph::DetailLevel::Standard,
-        "detailed" => graph::DetailLevel::Detailed,
-        _ => {
-            return Err(anyhow::anyhow!(
-                "Invalid detail level: {}. Use overview, standard, or detailed",
-                detail
-            ))
-        }
-    };
-
-    // Parse date filter
-    let min_date = if let Some(date_str) = since {
-        Some(
-            chrono::DateTime::parse_from_rfc3339(&date_str)
-                .map_err(|_| {
-                    anyhow::anyhow!(
-                        "Invalid date format: {}. Use ISO 8601 format (e.g., 2024-01-01T00:00:00Z)",
-                        date_str
-                    )
-                })?
-                .with_timezone(&chrono::Utc),
-        )
-    } else {
-        None
-    };
-
-    let config = graph::GraphConfig {
-        min_domain_threshold: min_threshold,
-        detail_level,
-        max_bookmarks_per_domain: max_per_domain,
-        max_total_bookmarks: max_total,
-        domain_only,
-        min_date,
-        ..Default::default()
-    };
-
-    println!("Graph configuration:");
-    println!("  Detail level: {:?}", detail_level);
-    println!("  Min domain threshold: {}", min_threshold);
-    if let Some(max_per) = max_per_domain {
-        println!("  Max bookmarks per domain: {}", max_per);
-    }
-    if let Some(max_tot) = max_total {
-        println!("  Max total bookmarks: {}", max_tot);
-    }
-    if domain_only {
-        println!("  Domain-only mode: enabled");
-    }
-    if let Some(ref date) = min_date {
-        println!("  Only bookmarks newer than: {}", date);
-    }
+    // Print configuration summary
+    let detail_level = config.detail_level;
+    let min_date = config.min_date;
+    params.print_summary(&detail_level, &min_date);
 
     let mut builder = graph::GraphBuilder::new(config);
     let graph = match data_type {
@@ -204,74 +222,13 @@ pub fn generate_graph(
         _ => return Err(anyhow::anyhow!("Invalid data type")),
     };
 
-    // For HTML output, write both HTML and data to temp folder (keeps personal data out of project)
+    // Handle output based on format
     if format == "html" {
-        let temp_dir = std::env::temp_dir().join("bookmark-graph");
-        fs::create_dir_all(&temp_dir)?;
-
-        let timestamp = chrono::Utc::now().format("%Y%m%d_%H%M%S");
-        let html_filename = format!("graph_{}.html", timestamp);
-        let data_filename = format!("graph_{}.data.js", timestamp);
-
-        let temp_html_path = temp_dir.join(&html_filename);
-        let data_path = temp_dir.join(&data_filename);
-
-        let js_content = graph::formats::to_js_data(&graph);
-        fs::write(&data_path, js_content)?;
-
-        let html_content = graph::formats::to_html_dynamic(&data_path);
-        fs::write(&temp_html_path, html_content)?;
-
-        println!("  Graph files created in temp directory:");
-        println!("    HTML: {}", temp_html_path.display());
-        println!("    Data: {}", data_path.display());
-        println!("  Opening {}", temp_html_path.display());
-
-        #[cfg(target_os = "macos")]
-        {
-            use std::process::Command;
-            Command::new("open").arg(&temp_html_path).spawn()?;
-        }
-        #[cfg(target_os = "linux")]
-        {
-            use std::process::Command;
-            Command::new("xdg-open").arg(&temp_html_path).spawn()?;
-        }
-        #[cfg(target_os = "windows")]
-        {
-            use std::process::Command;
-            Command::new("start").arg(&temp_html_path).spawn()?;
-        }
-
-        if output != temp_html_path {
-            let output_content = format!(
-                r#"<!DOCTYPE html>
-<html>
-<head><meta http-equiv="refresh" content="0;url={}"></head>
-<body>
-Redirecting to <a href="{}">{}</a>...
-</body>
-</html>"#,
-                temp_html_path.display(),
-                temp_html_path.display(),
-                temp_html_path.display()
-            );
-            fs::write(&output, output_content)?;
-            println!("  Redirect link: {}", output.display());
-        }
+        let (html_path, data_path) = graph_output::write_html_output(&graph, &output)?;
+        graph_output::print_output_summary(&html_path, &data_path, &graph);
+        utils::open_file(&html_path)?;
     } else {
-        let content = match format {
-            "dot" => graph::formats::to_dot(&graph),
-            "json" => graph::formats::to_json(&graph),
-            "gexf" => graph::formats::to_gexf(&graph),
-            _ => {
-                return Err(anyhow::anyhow!(
-                    "Invalid format: {}. Use dot, json, gexf, or html",
-                    format
-                ))
-            }
-        };
-        fs::write(&output, content)?;
+        write_simple_format(&graph, &output, format)?;
     }
 
     println!("✓ Graph generated: {}", output.display());
@@ -284,6 +241,23 @@ Redirecting to <a href="{}">{}</a>...
     );
     println!("  Edges: {}", graph.metadata.total_edges);
 
+    Ok(())
+}
+
+/// Write graph in simple formats (DOT, JSON, GEXF)
+fn write_simple_format(graph: &graph::KnowledgeGraph, output: &Path, format: &str) -> Result<()> {
+    let content = match format {
+        "dot" => graph::formats::to_dot(graph),
+        "json" => graph::formats::to_json(graph),
+        "gexf" => graph::formats::to_gexf(graph),
+        _ => {
+            return Err(anyhow::anyhow!(
+                "Invalid format: {}. Use dot, json, gexf, or html",
+                format
+            ))
+        }
+    };
+    fs::write(output, content)?;
     Ok(())
 }
 

@@ -8,9 +8,11 @@ mod config;
 mod deduplication;
 mod exporter;
 mod graph;
+mod graph_output;
 mod organization;
 mod processor;
 mod search;
+mod utils;
 
 use exporter::export_data;
 use search::{open_bookmark, search_bookmarks};
@@ -207,7 +209,15 @@ fn main() -> Result<()> {
             domain_only,
             since,
         } => {
-            cli::generate_graph(&browser, &data_type, &format, output, min_threshold, &detail, max_per_domain, max_total, domain_only, since)?;
+            let params = cli::GraphParams {
+                min_threshold,
+                detail,
+                max_per_domain,
+                max_total,
+                domain_only,
+                since,
+            };
+            cli::generate_graph(&browser, &data_type, &format, output, params)?;
         }
 
         Commands::Config {

@@ -1,6 +1,6 @@
 [package]
 name = "bookmark"
-version = "0.1.2"
+version = "0.1.3"
 edition = "2024"
 description = "Import, search, and open bookmarks from all browsers"
 repository = "https://github.com/yingkitw/bookmark"

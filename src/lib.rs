@@ -60,9 +60,11 @@ pub mod config;
 pub mod deduplication;
 pub mod exporter;
 pub mod graph;
+pub mod graph_output;
 pub mod organization;
 pub mod processor;
 pub mod search;
+pub mod utils;
 
 #[cfg(feature = "mcp")]
 pub mod mcp;
