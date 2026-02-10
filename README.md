@@ -12,7 +12,7 @@ A Rust library and toolkit to import, search, organize, and generate knowledge g
 - **Search and open bookmarks** instantly
 - **Export bookmarks and history** to YAML
 - **Remove duplicates** and organize into folders
-- **Generate knowledge graphs** (DOT, JSON, GEXF formats)
+- **Generate knowledge graphs** (DOT, JSON, GEXF, HTML formats) with tag extraction, auto-categorization, and similarity detection
 - **Three usage modes**: CLI, Library API, MCP Server
 
 ## Installation
@@ -62,8 +62,8 @@ cargo run -- export --browser chrome
 # Search bookmarks
 cargo run -- search github
 
-# Generate knowledge graph
-cargo run -- graph --format dot -o graph.dot
+# Generate interactive knowledge graph
+cargo run -- graph --format html -o graph.html
 ```
 
 ### 2. Library API
@@ -168,10 +168,11 @@ cargo run -- process --preview                # Preview changes
 
 ### `graph` - Generate knowledge graphs
 ```bash
-cargo run -- graph --format dot -o graph.dot  # DOT format
+cargo run -- graph --format html -o graph.html # Interactive HTML (default)
+cargo run -- graph --format dot -o graph.dot   # DOT format (Graphviz)
 cargo run -- graph --format json -o graph.json # JSON format
-cargo run -- graph --format gexf -o graph.gexf # GEXF format
-cargo run -- graph --min-threshold 3          # Domain threshold
+cargo run -- graph --format gexf -o graph.gexf # GEXF format (Gephi)
+cargo run -- graph --min-threshold 3           # Domain threshold
 ```
 
 ### `config` - Manage settings
@@ -183,13 +184,20 @@ cargo run -- config --create-sample cfg.yaml  # Create sample
 
 ## Knowledge Graphs
 
-Generate visual graphs showing relationships between bookmarks:
+Generate rich knowledge graphs showing relationships between bookmarks:
 
-- **Domain-based**: Links bookmarks from the same domains
-- **Folder-based**: Links bookmarks in the same folders
-- **Formats**: DOT (Graphviz), JSON (web), GEXF (Gephi)
+- **Node types**: Bookmark, Domain, Folder, Tag, Category
+- **Edge types**: BelongsToDomain, InFolder, SameDomain, HasTag, InCategory, SimilarContent
+- **Tag extraction**: Automatically extracts meaningful keywords from titles and URLs
+- **Auto-categorization**: Classifies bookmarks into categories (Development, AI & ML, Cloud, Shopping, etc.)
+- **Similarity detection**: Finds related bookmarks using Jaccard similarity on extracted tags
+- **Formats**: HTML (interactive D3.js), DOT (Graphviz), JSON (web), GEXF (Gephi)
 
 ```bash
+# Generate interactive HTML visualization (default)
+cargo run -- graph --format html -o graph.html
+open graph.html
+
 # Generate DOT for Graphviz
 cargo run -- graph --format dot -o bookmarks.dot
 dot -Tpng bookmarks.dot -o bookmarks.png
@@ -197,6 +205,14 @@ dot -Tpng bookmarks.dot -o bookmarks.png
 # Generate GEXF for Gephi
 cargo run -- graph --format gexf --min-threshold 3 -o analysis.gexf
 ```
+
+The HTML visualization features:
+- **Interactive force-directed graph** with zoom/pan/drag
+- **Dark/light theme** toggle
+- **Node type filters** to show/hide bookmark, domain, folder, tag, category nodes
+- **Adjustable physics** (charge strength, link distance)
+- **Tooltips** with bookmark details
+- **Click-to-open** bookmarks in browser
 
 ## Safari Export
 
@@ -211,7 +227,7 @@ On macOS, Safari bookmarks are protected. Export manually:
 |--------|--------|
 | `--browser` | chrome, firefox, safari, edge, all |
 | `--data-type` | bookmarks, history, both |
-| `--format` | dot, json, gexf (graph) |
+| `--format` | html, dot, json, gexf (graph) |
 | `--mode` | dedupe, organize, both |
 | `--strategy` | first, last, recent, merge |
 | `--org-strategy` | domain, category, custom |
@@ -231,7 +247,7 @@ cargo build --release --lib                        # Library only
 ./test_all_modes.sh
 
 # Run tests individually
-cargo test --lib                    # Unit tests (39 tests)
+cargo test --lib                    # Unit tests (45 tests)
 cargo test --test integration_test  # Integration tests (3 tests)
 cargo test --features mcp --test mcp_test  # MCP tests
 cargo test --doc                    # Documentation tests (1 test)

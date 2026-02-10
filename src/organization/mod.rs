@@ -1,3 +1,7 @@
+pub mod rules;
+#[cfg(test)]
+mod tests;
+
 use anyhow::Result;
 use regex::Regex;
 use std::collections::HashMap;
@@ -169,10 +173,8 @@ impl BookmarkOrganizer {
 
         // For domains like 'co.uk', 'com.au', etc., handle properly
         if parts.len() >= 3 && (parts[1] == "co" || parts[1] == "com" || parts[1] == "org") {
-            // Keep the main domain and TLD
             format!("Domains/{}", parts[0])
         } else if parts.len() >= 2 {
-            // Standard domain format - use second-to-last part (the actual domain)
             format!("Domains/{}", parts[parts.len() - 2])
         } else {
             format!("Domains/{}", host)
@@ -182,7 +184,6 @@ impl BookmarkOrganizer {
     fn categorize_by_content(&self, url: &str, title: &str) -> String {
         let content = format!("{} {}", url, title).to_lowercase();
 
-        // Check for development-related keywords
         if self.contains_any(
             &content,
             &[
@@ -198,7 +199,6 @@ impl BookmarkOrganizer {
             return "Development".to_string();
         }
 
-        // Check for social media
         if self.contains_any(
             &content,
             &["facebook", "twitter", "instagram", "linkedin", "social"],
@@ -206,7 +206,6 @@ impl BookmarkOrganizer {
             return "Social".to_string();
         }
 
-        // Check for shopping
         if self.contains_any(
             &content,
             &["amazon", "ebay", "shop", "store", "buy", "price"],
@@ -214,17 +213,14 @@ impl BookmarkOrganizer {
             return "Shopping".to_string();
         }
 
-        // Check for news
         if self.contains_any(&content, &["news", "article", "blog", "post", "wikipedia"]) {
             return "News & Reference".to_string();
         }
 
-        // Check for entertainment
         if self.contains_any(&content, &["video", "movie", "music", "game", "stream"]) {
             return "Entertainment".to_string();
         }
 
-        // Check for work/productivity
         if self.contains_any(
             &content,
             &["work", "office", "productivity", "tool", "service"],
@@ -298,230 +294,5 @@ impl BookmarkOrganizer {
         }
 
         summary
-    }
-}
-
-pub fn create_automated_rules(bookmarks: &[Bookmark]) -> Vec<OrganizationRule> {
-    let mut domain_counts: HashMap<String, usize> = HashMap::new();
-    let mut title_patterns: HashMap<String, Vec<String>> = HashMap::new();
-
-    // Count domain frequencies
-    for bookmark in bookmarks {
-        if let Some(url) = &bookmark.url {
-            if let Ok(parsed) = Url::parse(url) {
-                if let Some(host) = parsed.host_str() {
-                    *domain_counts.entry(host.to_string()).or_insert(0) += 1;
-                }
-            }
-        }
-
-        // Extract common title patterns
-        let title_words: Vec<String> = bookmark
-            .title
-            .split_whitespace()
-            .map(|word| word.to_lowercase())
-            .filter(|word| word.len() > 3)
-            .collect();
-
-        for word in title_words {
-            title_patterns
-                .entry(word.clone())
-                .or_insert_with(Vec::new)
-                .push(bookmark.title.clone());
-        }
-    }
-
-    let mut rules = Vec::new();
-
-    // Create rules for frequently used domains
-    for (domain, count) in domain_counts {
-        if count >= 5 {
-            let folder_name = domain.split('.').next().unwrap_or(&domain).to_string();
-
-            rules.push(OrganizationRule {
-                name: format!("Auto: {}", domain),
-                pattern: format!(r"{}", regex::escape(&domain)),
-                folder: format!("Frequent/{}", folder_name),
-                priority: 3,
-            });
-        }
-    }
-
-    rules
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_domain_extraction() {
-        let config = OrganizationConfig::default();
-        let organizer = BookmarkOrganizer::new(config);
-
-        assert_eq!(
-            organizer.extract_domain_folder("www.github.com"),
-            "Domains/github"
-        );
-        assert_eq!(
-            organizer.extract_domain_folder("example.co.uk"),
-            "Domains/example"
-        );
-        assert_eq!(
-            organizer.extract_domain_folder("subdomain.example.com"),
-            "Domains/example"
-        );
-    }
-
-    #[test]
-    fn test_content_categorization() {
-        let config = OrganizationConfig::default();
-        let organizer = BookmarkOrganizer::new(config);
-
-        assert_eq!(
-            organizer.categorize_by_content("https://github.com/user/repo", "GitHub Repo"),
-            "Development"
-        );
-
-        assert_eq!(
-            organizer.categorize_by_content("https://www.amazon.com/product", "Product on Amazon"),
-            "Shopping"
-        );
-    }
-
-    #[test]
-    fn test_custom_rules() {
-        let config = OrganizationConfig::default();
-        let organizer = BookmarkOrganizer::new(config);
-
-        let bookmark = Bookmark {
-            id: "1".to_string(),
-            title: "My Facebook Profile".to_string(),
-            url: Some("https://www.facebook.com/profile".to_string()),
-            folder: None,
-            date_added: None,
-            children: None,
-        };
-
-        let folder = organizer.determine_folder(&bookmark);
-        assert_eq!(folder, "Social");
-    }
-
-    #[test]
-    fn test_organize_preserves_existing() {
-        let config = OrganizationConfig {
-            preserve_existing: true,
-            ..Default::default()
-        };
-        let organizer = BookmarkOrganizer::new(config);
-
-        let bookmarks = vec![Bookmark {
-            id: "1".to_string(),
-            title: "GitHub".to_string(),
-            url: Some("https://github.com".to_string()),
-            folder: Some("My Folder".to_string()),
-            date_added: None,
-            children: None,
-        }];
-
-        let result = organizer.organize(bookmarks).unwrap();
-        assert_eq!(result.len(), 1);
-        assert!(result[0].folder.as_ref().unwrap().contains("My Folder"));
-    }
-
-    #[test]
-    fn test_organize_replaces_folder() {
-        let config = OrganizationConfig {
-            preserve_existing: false,
-            ..Default::default()
-        };
-        let organizer = BookmarkOrganizer::new(config);
-
-        let bookmarks = vec![Bookmark {
-            id: "1".to_string(),
-            title: "GitHub".to_string(),
-            url: Some("https://github.com".to_string()),
-            folder: Some("Old Folder".to_string()),
-            date_added: None,
-            children: None,
-        }];
-
-        let result = organizer.organize(bookmarks).unwrap();
-        assert_eq!(result.len(), 1);
-        assert!(!result[0].folder.as_ref().unwrap().contains("Old Folder"));
-    }
-
-    #[test]
-    fn test_multiple_categorization_rules() {
-        let config = OrganizationConfig::default();
-        let organizer = BookmarkOrganizer::new(config);
-
-        // Test various URLs get categorized correctly
-        let test_cases = vec![
-            ("https://github.com", "GitHub", "Development"),
-            ("https://twitter.com", "Twitter", "Social"),
-            ("https://www.amazon.com/product", "Amazon", "Shopping"),
-            ("https://nytimes.com/article", "News", "News & Reference"),
-            ("https://youtube.com/watch", "Video", "Entertainment"),
-        ];
-
-        for (url, title, expected_category) in test_cases {
-            let category = organizer.categorize_by_content(url, title);
-            assert_eq!(
-                category, expected_category,
-                "Failed for URL: {}, Title: {}",
-                url, title
-            );
-        }
-    }
-
-    #[test]
-    fn test_domain_edge_cases() {
-        let config = OrganizationConfig::default();
-        let organizer = BookmarkOrganizer::new(config);
-
-        // Test edge cases
-        let test_cases = vec![
-            ("example.com", "Domains/example"),
-            ("sub.sub.example.com", "Domains/example"),
-            ("www.example.com", "Domains/example"),
-            ("github.io", "Domains/github"),
-        ];
-
-        for (host, expected) in test_cases {
-            let result = organizer.extract_domain_folder(host);
-            assert_eq!(result, expected, "Failed for host: {}", host);
-        }
-    }
-
-    #[test]
-    fn test_empty_bookmarks_list() {
-        let config = OrganizationConfig::default();
-        let organizer = BookmarkOrganizer::new(config);
-
-        let bookmarks: Vec<Bookmark> = vec![];
-        let result = organizer.organize(bookmarks).unwrap();
-
-        assert_eq!(result.len(), 0);
-    }
-
-    #[test]
-    fn test_bookmark_without_url() {
-        let config = OrganizationConfig::default();
-        let organizer = BookmarkOrganizer::new(config);
-
-        let bookmarks = vec![Bookmark {
-            id: "1".to_string(),
-            title: "No URL".to_string(),
-            url: None,
-            folder: None,
-            date_added: None,
-            children: None,
-        }];
-
-        let result = organizer.organize(bookmarks).unwrap();
-        assert_eq!(result.len(), 1);
-        // Should categorize as Uncategorized
-        assert_eq!(result[0].folder.as_ref().unwrap(), "Uncategorized");
     }
 }

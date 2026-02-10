@@ -25,7 +25,16 @@ Bookmark Exporter is a cross-platform Rust CLI tool that extracts browser data (
    - JSON (future)
    - CSV (future)
 
-4. **Operating Systems**
+4. **Knowledge Graph Generation**
+   - Node types: Bookmark, Domain, Folder, Tag, Category
+   - Edge types: BelongsToDomain, InFolder, SameDomain, HasTag, InCategory, SimilarContent
+   - Tag extraction from titles and URLs with stop-word filtering
+   - Auto-categorization into 10 categories via keyword matching
+   - Similarity detection via Jaccard similarity on tag sets
+   - Export formats: HTML (interactive D3.js), DOT (Graphviz), JSON, GEXF (Gephi)
+   - Configurable thresholds for domain, tag, and similarity edges
+
+5. **Operating Systems**
    - macOS (10.15+)
    - Windows (10+)
    - Linux (major distributions)

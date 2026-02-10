@@ -1,5 +1,38 @@
 # TODO List
 
+## Completed (v0.1.5)
+
+- [x] **Full Codebase Modularization**
+  - [x] Split `exporter.rs` (536 lines) → `exporter/mod.rs` + `chrome.rs` + `firefox.rs` + `safari.rs`
+  - [x] Split `main.rs` (538 lines) → `main.rs` (223 lines, CLI defs) + `cli.rs` (348 lines, handlers)
+  - [x] Split `mcp.rs` (437 lines) → `mcp/mod.rs` (269 lines, protocol) + `mcp/tools.rs` (176 lines)
+  - [x] Split `organization.rs` (527 lines) → `organization/mod.rs` + `rules.rs` + `tests.rs`
+  - [x] Split `deduplication.rs` (560 lines) → `deduplication/mod.rs` + `tests.rs`
+  - [x] All 25 source files now under 350 lines (except HTML templates and test files)
+  - [x] 48 tests passing (44 lib + 3 integration + 1 doc)
+
+## Completed (v0.1.4)
+
+- [x] **Graph Module Refactor**
+  - [x] Split monolithic graph.rs (1870 lines) into 5 modules: mod.rs, builder.rs, analyzer.rs, formats.rs, tests.rs
+  - [x] DRY: Unified `ingest_items()` method eliminates code duplication across from_bookmarks/from_history/from_both
+  - [x] Extracted analyzer functions (extract_tags, categorize, jaccard_similarity, extract_domain) into standalone module
+  - [x] Live data loading: `exporter::load_browser_data()` reads directly from browser DBs (no temp YAML files)
+  - [x] Fixed CLI, Library API, and MCP server to all use live in-memory data loading
+  - [x] 93 tests passing (46 lib + 44 bin + 3 integration + 1 doc)
+
+## Completed (v0.1.3)
+
+- [x] **Knowledge Graph Enhancement**
+  - [x] Tag extraction from bookmark titles and URLs (stop-word filtering)
+  - [x] Auto-categorization (Development, AI & ML, Cloud, Shopping, etc.)
+  - [x] Similarity detection via Jaccard similarity on extracted tags
+  - [x] New node types: Tag, Category
+  - [x] New edge types: HasTag, InCategory, SimilarContent
+  - [x] Interactive HTML visualization (D3.js force-directed graph)
+  - [x] Dark/light theme, node type filters, adjustable physics
+  - [x] HTML format support in CLI, Library API, and MCP server
+
 ## Completed (v0.1.2)
 
 - [x] **MCP Server Implementation**
@@ -25,12 +58,12 @@
   - [x] Clean compilation warnings
 
 - [x] **Testing**
-  - [x] Unit tests (39 tests - all passing)
+  - [x] Unit tests (45 tests - all passing)
   - [x] Integration tests (3 tests - all passing)
   - [x] Documentation tests (1 test - passing)
   - [x] MCP server tests
   - [x] Test script for all modes
-  - [x] Total: 80 tests passing (39 lib + 37 bin + 3 integration + 1 doc)
+  - [x] Total: 92 tests passing (45 lib + 43 bin + 3 integration + 1 doc)
 
 - [x] **Code Quality**
   - [x] Fixed all compilation warnings

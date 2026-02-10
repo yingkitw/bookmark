@@ -9,39 +9,33 @@ Bookmark Exporter is a modular, cross-platform CLI application built with Rust t
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   CLI Layer     │────│  Detection      │────│  Extraction     │────│   Output Layer  │
-│   (main.rs)     │    │   (browser.rs)  │    │  (exporter.rs)  │    │   (YAML)        │
+│ main.rs + cli.rs│    │  browser.rs     │    │  exporter/      │    │  graph/formats  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │                       │
          ▼                       ▼                       ▼                       ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Command Parse  │    │  Browser Enum   │    │  Data Models    │    │  File I/O       │
-│  Validation     │    │  Path Resolver  │    │  Parsers        │    │  Serialization  │
+│  Command Parse  │    │  Browser Enum   │    │  chrome.rs      │    │  DOT/JSON/GEXF  │
+│  Dispatch       │    │  Path Resolver  │    │  firefox.rs     │    │  HTML (D3.js)   │
+│  (clap)         │    │  Profile Finder │    │  safari.rs      │    │  Serialization  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
 ## Module Architecture
 
-### 1. CLI Layer (`main.rs`)
+### 1. CLI Layer (`main.rs` + `cli.rs`)
 
 **Purpose**: Command-line interface and application entry point
+
+**Module Structure**:
+
+- `main.rs`: CLI definitions (clap Parser/Subcommand) and dispatch (~220 lines)
+- `cli.rs`: Handler functions for each command (~350 lines)
 
 **Components**:
 
 - `Cli`: Main argument parser using clap
-- `Commands`: Enum for subcommands (Export, List, Scan)
-- `export_all_browsers()`: Batch export coordination
-
-**Responsibilities**:
-
-- Parse and validate CLI arguments
-- Coordinate between detection and extraction modules
-- Handle user feedback and error display
-- Manage output directory creation
-
-**Key Design Patterns**:
-
-- Command pattern for different operations
-- Strategy pattern for different data types
+- `Commands`: Enum for subcommands (Export, List, Search, Open, Process, Graph, Config)
+- Handler functions: `export_all_browsers`, `process_bookmarks`, `generate_graph`, `handle_config`, `list_all_browsers`, `list_browser_profiles`
 
 ### 2. Browser Detection (`browser.rs`)
 
@@ -71,31 +65,69 @@ match platform {
 }
 ```
 
-### 3. Data Extraction (`exporter.rs`)
+### 3. Data Extraction (`exporter/`)
 
 **Purpose**: Extract and parse browser-specific data formats
 
-**Components**:
+**Module Structure**:
 
-- `BrowserData`: Unified data model
-- `extract_bookmarks()`: Bookmark extraction dispatcher
-- `extract_history()`: History extraction dispatcher
-- Browser-specific parsers
+- `exporter/mod.rs`: Types (Bookmark, UrlEntry, BrowserData), public API (`load_browser_data`, `export_data`), browser dispatch
+- `exporter/chrome.rs`: Chrome/Edge bookmark JSON + History SQLite parsing
+- `exporter/firefox.rs`: Firefox places.sqlite bookmark + history parsing (with lock-safe copy)
+- `exporter/safari.rs`: Safari Bookmarks.plist parsing
 
-**Responsibilities**:
-
-- Handle different browser data formats
-- Parse structured data (JSON, SQLite, plist)
-- Normalize data to unified model
-- Handle locked/corrupted databases
+**Key API**: `load_browser_data(browser, data_type)` — reads live from browser databases in-memory, no temp files
 
 **Data Flow**:
 
 ```
-Raw Browser Data → Format Parser → Normalized Model → Validation
+Browser DB/JSON/plist → Browser-specific parser → Unified Bookmark/UrlEntry model
 ```
 
-### 4. Data Models
+### 4. Knowledge Graph Engine (`graph/`)
+
+**Purpose**: Generate rich knowledge graphs from bookmark/history data
+
+**Module Structure**:
+
+- `graph/mod.rs`: Types (NodeType, EdgeType, GraphNode, GraphEdge, KnowledgeGraph, GraphConfig)
+- `graph/builder.rs`: GraphBuilder with unified `ingest_items()` pipeline (DRY)
+- `graph/analyzer.rs`: Tag extraction, categorization, similarity (Jaccard), domain extraction
+- `graph/formats.rs`: Export formats (DOT, JSON, GEXF, HTML with D3.js)
+- `graph/tests.rs`: 18 unit tests
+
+**Data Loading**: Reads live from browser databases via `exporter::load_browser_data()` — no intermediate file I/O
+
+**Components**:
+
+- `GraphBuilder`: Stateful builder with unified `ingest_items()` method
+- `GraphConfig`: Configuration for edge types, thresholds, detail levels, similarity
+- `KnowledgeGraph`: Output structure with nodes, edges, metadata
+
+**Node Types**: Bookmark, Domain, Folder, Tag, Category
+
+**Edge Types**: BelongsToDomain, InFolder, SameDomain, HasTag, InCategory, SimilarContent
+
+**Processing Pipeline**:
+
+```
+Bookmarks → Tag Extraction → Category Assignment → Node/Edge Creation → Similarity Detection → Graph Output
+```
+
+**Tag Extraction**: Splits titles/URLs into tokens, filters stop words, extracts URL path segments
+
+**Auto-Categorization**: Keyword-based classification into 10 categories (Development, AI & ML, Cloud & DevOps, News, Social, Shopping, Finance, Education, Design, Reference)
+
+**Similarity Detection**: Jaccard similarity on extracted tag sets between bookmark pairs
+
+**Export Formats**:
+
+- HTML: Interactive D3.js force-directed graph with dark/light theme, filters, zoom/pan
+- DOT: Graphviz format with color-coded node/edge types
+- JSON: Structured data for web visualization
+- GEXF: Gephi network analysis format
+
+### 5. Data Models
 
 **Core Structures**:
 

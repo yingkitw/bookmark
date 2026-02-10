@@ -17,3 +17,10 @@ Thumbs.db
 
 # Exports
 exports/
+
+# Graph data files (generated in temp or output directory)
+*.data.js
+graph_*.html
+graph_*.json
+!Cargo.lock
+

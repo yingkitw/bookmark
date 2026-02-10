@@ -92,28 +92,10 @@ impl BookmarkManager {
         self
     }
 
-    /// Export bookmarks from a browser
+    /// Export bookmarks from a browser (reads live from browser databases)
     pub fn export_bookmarks(&self, browser: &str) -> Result<Vec<Bookmark>, Box<dyn std::error::Error>> {
-        use crate::exporter::export_data;
-        use std::fs;
-
-        let temp_dir = self.export_dir.clone().unwrap_or_else(|| PathBuf::from("/tmp/bookmark_export"));
-        fs::create_dir_all(&temp_dir)?;
-
-        let output_file = temp_dir.join(format!("{}-bookmarks.yaml", browser));
-        export_data(browser, "bookmarks", Some(output_file.clone()), None)?;
-
-        let content = fs::read_to_string(&output_file)?;
-        let browser_data: Vec<crate::exporter::BrowserData> = serde_yaml::from_str(&content)?;
-
-        let mut all_bookmarks = Vec::new();
-        for data in browser_data {
-            if let Some(bookmarks) = data.bookmarks {
-                all_bookmarks.extend(bookmarks);
-            }
-        }
-
-        Ok(all_bookmarks)
+        let (bookmarks, _) = crate::exporter::load_browser_data(browser, "bookmarks")?;
+        Ok(bookmarks)
     }
 
     /// Search bookmarks by query
