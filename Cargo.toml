@@ -1,12 +1,14 @@
 [package]
 name = "bookmark"
-version = "0.1.3"
+version = "0.1.4"
 edition = "2024"
-description = "Import, search, and open bookmarks from all browsers"
+description = "Interactive bookmark manager with knowledge graph generation from browser bookmarks and history"
 repository = "https://github.com/yingkitw/bookmark"
 license = "Apache-2.0"
 documentation = "https://docs.rs/bookmark"
 homepage = "https://github.com/yingkitw/bookmark"
+keywords = ["bookmarks", "knowledge-graph", "browser", "cli", "visualization"]
+categories = ["command-line-utilities", "visualization", "web-programming"]
 
 [lib]
 name = "bookmark"
